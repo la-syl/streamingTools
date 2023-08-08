@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<html>
+<head>
+
+<!-- Styles -->
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+html, body {
+    height: 100%;
+}
+body {
+    overflow: hidden;
+}
+.wrapper {
+    position: absolute;
+    top: 100%;
+    padding: 36px 24px;
+    width: 100%;
+    text-align: center;
+    color: #000000;
+}
+h1 {
+    padding: 36px 24px;
+    font-size: 60px;
+}
+h2 {
+    padding: 36px 24px;
+    font-size: 48px;
+    padding: 24px 12px;
+    font-weight: bold;
+}
+.name {
+    padding: 12px 6px;
+    font-size: 36px;
+}
+#licence {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    text-align: left;
+}
+img {
+    border-width: 0px;
+    margin-right: 12px;
+}
+</style>
+
+<!-- Script --> 
+
+<script language="javascript" type="text/javascript">
+			//Déclaration des fonctions
+			function getParameterCaseInsensitive(object, key) {
+			  return object[Object.keys(object)
+				.find(k => k.toLowerCase() === key.toLowerCase())
+			  ];
+			};
+	
+			function animateCredits(container){
+						const creditsSize = Math.ceil((container.offsetHeight / window.innerHeight) * -100) - 10;
+				//changez cette valeur pour accélerer ou ralentir la vitesse de l'animation des crédits
+					const duration = ((container.offsetHeight / window.innerHeight * 100) + 100) * 300; 
+					const creditsAnimation = container.animate([
+							{ top: '110%' },
+							{ top: creditsSize + '%' }
+						],{
+							duration: duration,
+							iterations: Infinity
+						}
+					);	
+					}
+
+			// Connection au WebSocket : valeurs par défaut de streamer.bot
+			const socket = new WebSocket('ws://127.0.0.1:8080');
+			
+			// Message d'erreur si la connection échoue
+			socket.addEventListener("error", (event) => {
+				console.log("WebSocket error: ", event);
+  				let doc = document.getElementById("credits");
+				let errorMessage = document.createElement("h1");
+				errorMessage.innerHTML = `La connection au websocket a échoué. Vérifiez que streamer.bot est bien lancé et que le server Websocket est actif et réessayez.`;
+				doc.appendChild(errorMessage);
+				animateCredits(doc);
+			});
+
+			// CPH socket message
+			socket.onmessage = function (event) {
+				var msg = JSON.parse(event.data);
+				console.log('Message from server: ', msg);
+
+				if (msg["id"] == 'credits') {
+					socket.close();
+					
+					// Déclaration des variables
+					const headers = [
+						{ section: "users", key: "moderators", title: "Les modérateurs"},
+						{ section: "events", key: "follows", title: "Les follows" },
+						{ section: "events", key: "cheers", title: "Les cheerers" },
+						{ section: "events", key: "subs", title: "Les subs" },
+						{ section: "events", key: "reSubs", title: "Les resubs" },
+						{ section: "events", key: "giftSubs", title: "Les subgifters" },
+						{ section: "events", key: "giftBombs", title: "Les gros subgifters" },
+						{ section: "hypeTrain", key: "conductors", title: "Les conducteurs du train de la hype" },
+						{ section: "hypeTrain", key: "contributors", title: "Les passagers du train de la hype" },
+						{ section: "events", key: "raided", title: "Les raiders" },
+						{ section: "events", key: "rewardRedemptions", title: "Ceux qui ont utilisé leurs points de chaine" },
+						{ section: "users", key: "subscribers", title: "Les subs présents pendant le live", filterExistingEntries: true },
+						{ section: "groups", key: "", title: "", filterExistingEntries: true},
+						{ section: "users", key: "users", title: "Les follows présents pendant le live", filterExistingEntries: true },
+					];
+					const container = document.getElementById('credits');
+					const existingUserMap = {};
+					const elements = [];
+					let viewerThanks = false;
+					
+					//Titre des crédits
+					elements.push(`<h1>C'est une fin de live !</h1>`);
+
+					//Iteration pour chaque objet header dans la const headers
+					for (const header of headers) {
+						//headerSection = objet contenant des arrays de pseudo correspondant à la valeur de section de l'objet header. 
+						const headerSection = getParameterCaseInsensitive(msg, header.section);
+						if (headerSection) {
+							//eventData = array de pseudo correspondant au key du header
+							let eventData = getParameterCaseInsensitive(headerSection, header.key);
+							
+							if (!eventData) continue;
+
+							//filtre les pseudo déjà apparus précedemment
+							if (header.filterExistingEntries) {
+								eventData = eventData.filter(e => !existingUserMap[header.section] || !existingUserMap[header.section].includes(e));
+
+								if(existingUserMap.groups){
+									eventData = eventData.filter(e => !existingUserMap.groups.includes(e));
+								}
+								eventData = eventData.filter(e => !existingUserMap.users.includes(e));
+							}
+
+							// Remerciements pour les viewers
+							if (header.section == "users" && header.key != "moderators"){
+								if (!viewerThanks){
+									elements.push(`
+									<h1>Un gros merci à tous les viewers du soir!
+									</h1>
+									`);
+									viewerThanks = true;
+								}
+								
+							}
+
+							// Ajout des titres et viewers aux éléments du DOM
+							if (eventData.length > 0) {
+								elements.push(`
+									<h2 class="job">${ header.title }</h2>
+									${Object.values(eventData).map(entry => `<p class="name">${ entry }</p>`).join('')}
+								`);
+								if (!existingUserMap[header.section]) existingUserMap[header.section] = [];
+								existingUserMap[header.section].push(...eventData);
+							};
+						}
+					}
+					
+					//Ajout de l'attribution et de la license copyleft (ne pas enlever svp soyez pas des chacals)
+					elements.push(`
+					<div id="licence"> 
+						<img src="https://i.creativecommons.org/l/by-nc/4.0/88x31.png" />
+						<p>
+							Crédits écrits par la_Syl <br />
+						  	CC Attribution - NonCommercial 4.0
+						</p>
+					 </div>
+					`);
+
+					container.innerHTML = elements.join('');
+
+					// Animation
+					animateCredits(container);
+				}
+				
+			}
+
+			// Valeurs de "request" : 'GetCredits' pour les lives ou 'TestCredits' pour les tests
+			socket.onopen = function (event) {
+				var msg = {
+					id: 'credits',
+					request: 'GetCredits'
+				};
+				socket.send(JSON.stringify(msg));
+			};
+		</script>
+</head>
+
+<body>
+<div id="credits" class="wrapper"></div>
+</body>
+</html>
+
+
+<!-- Crédits de fin écrit par la_Syl -->
+<!-- Sources : https://www.youtube.com/@LyfesaGame, https://wiki.streamer.bot/en/Settings/Credits -->

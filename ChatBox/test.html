@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twitch Chat Log</title>
+  <style>
+    .chat-line {
+      display: flex;
+      margin-bottom: 10px;
+    }
+
+    .profile-pic {
+      border-radius: 50%;
+      height: 40px;
+      margin-right: 10px;
+      width: 40px;
+    }
+
+    .speech-bubble {
+      background-color: #9147ff;
+      border-radius: 20px;
+      font-size: 14px;
+      line-height: 1.2;
+      max-width: 75%;
+      padding: 5px 10px;
+      position: relative;
+    }
+
+    .balloon {
+      color: white;
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+    }
+
+    .speech-bubble::before {
+      content: "";
+      position: absolute;
+      right: 100%;
+      top: 50%;
+      margin-top: -10px;
+      width: 0;
+      height: 0;
+      border-top: 10px solid transparent;
+      border-right: 10px solid #9147ff;
+      border-bottom: 10px solid transparent;
+    }
+
+    .username {
+      color: #9147ff;
+      font-weight: bold;
+      margin-right: 5px;
+    }
+
+    .badge {
+      height: 20px;
+      margin-right: 5px;
+      width: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="chatlog"></div>
+  <script src="tmi.min.js"></script>
+  <script>
+    const client = new tmi.Client({
+      connection: { reconnect: true },
+      channels: ['la_syl']
+    });
+
+    client.connect().catch(console.error);
+
+    client.on('message', (channel, tags, message, self) => {
+      const chatLine = document.createElement('div');
+      chatLine.classList.add('chat-line');
+
+      const profilePic = document.createElement('img');
+      profilePic.classList.add('profile-pic');
+      profilePic.setAttribute('src', tags['badge-info'] ? tags['badge-info'] : tags['user-id']);
+      
+      const messageBubble = document.createElement('div');
+      messageBubble.classList.add('speech-bubble');
+      
+      const usernameSpan = document.createElement('span');
+      usernameSpan.classList.add('username');
+      usernameSpan.textContent = tags['display-name'] || tags.username;
+      
+      const balloon = document.createElement('div');
+      balloon.classList.add('balloon');
+      balloon.textContent = message;
+      messageBubble.appendChild(balloon);
+      
+      const badgesContainer = document.createElement('span');
+      badgesContainer.classList.add('badges');
+      
+      if (tags['badges']) {
+        for (const badge in tags['badges']) {
+          const badgeImg = document.createElement('img');
+          badgeImg.classList.add('badge');
+          badgeImg.setAttribute('src', tags['badges'][badge]);
+          badgesContainer.appendChild(badgeImg);
+        }
+      }
+      
+      chatLine.appendChild(profilePic);
+      chatLine.appendChild(messageBubble);
+      chatLine.appendChild(usernameSpan);
+      chatLine.appendChild(badgesContainer);
+      
+      const chatlog = document.querySelector('#chatlog');
+      chatlog.appendChild(chatLine);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap');
+
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Comic Neue', cursive;
+      color: black;
+      font-size: 38px;
+      overflow-wrap: break-word;
+      max-width:800px;
+      height:100%;
+      margin: 0px;
+    }
+
+    #chat {
+      box-sizing: border-box;
+      height: 100%;
+      display:flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding-top: 38px;
+      padding-bottom: 38px;
+      
+    }
+
+    #chat > div {
+      margin: 0px 0px 6px 0px;
+      padding: 0px;
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-end;
+      align-items: flex-end;
+      width: auto;
+    }
+
+    img {
+      display:inline;
+      width: 38px;
+      height: 38px;
+    }
+
+    .profilePic {
+      margin: 0px 5px 5px 25px;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+    }
+
+    /* Speech Balloon Shape */
+
+    .balloon {
+      max-width: 500px;
+      position: relative;
+      padding: 20px;
+      margin: 10px;
+      background-color: #eee;
+      border-radius: 30px;
+      text-align: left;
+    }
+
+    .balloon:after {
+      content: "";
+      position: absolute;
+      right: -15px;
+      bottom: 5px;
+      width: 0;
+      height: 0;
+      border-top: 20px solid transparent;
+      border-right: 20px solid #eee;
+      border-bottom: 20px solid transparent;
+      transform: scaleY(-1) rotate(45deg);
+    }
+
+    /* Animation */
+
+    .slide-up {
+    position: relative;
+    bottom: -100%;
+    left: 0;
+    right: 0;
+    padding: 20px;
+    opacity: 1;
+    animation: slide-up 0.5s ease-in-out forwards, fade-out 0.5s ease-in-out 60s forwards;
+  }
+
+  @keyframes slide-up {
+    from {
+      bottom: -100%; /* Start position */
+    }
+    to {
+      bottom: 0; /* End position */
+    }
+  }
+
+  @keyframes fade-out {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  </style>
+</head>
+
+<body>
+  <script src="tmi.min.js"></script>
+  <script>
+    //Connection to tmi.js
+  const client = new tmi.Client({
+    channels: ['la_syl']
+  });
+  console.log('client created');
+
+  client.connect();
+  console.log('connected');
+
+  client.on('message', (channel, tags, message, self) => {
+    //Variables value check
+    console.log('channel:', channel);
+    console.log('tags:', tags);
+    console.log('message:', message);
+
+    //Function to replace emote names with images
+    function formatMessage(message, emotes) {
+      if (!emotes) {
+        return message;
+      }
+
+      const emoteIds = Object.keys(emotes);  
+      let formatMessage = message;
+
+      let emotesMsg = [];
+      let emoteNmbr = 0;
+
+      for (const emoteId of emoteIds) {
+        for (let i = emotes[emoteId].length - 1; i >= 0; i--){
+          const [start, end] = emotes[emoteId][i].split('-').map(Number);
+          console.log('start:', start);
+          console.log('end:', end);
+
+          emotesMsg[emoteNmbr] = {
+            id: emoteId,
+            start: start,
+            end: end,
+            tag: `<img src='https://static-cdn.jtvnw.net/emoticons/v2/${emoteId}/default/dark/1.0' />`
+          };
+
+          emoteNmbr++;
+        }
+      }
+      //sort the emotesMsg array by start position in descending order 
+      emotesMsg.sort((a, b) => b.start - a.start);
+
+      //replace the emote name with the image
+      for (let i = 0; i < emoteNmbr; i++) {
+          formatMessage = formatMessage.slice(0, emotesMsg[i].start) + emotesMsg[i].tag + formatMessage.slice(emotesMsg[i].end + 1);
+      }
+
+      return formatMessage;
+    }
+
+    const formattedMessage = formatMessage(message, tags.emotes);
+
+    console.log('formattedMessage:', formattedMessage);
+
+    //write a block of text that says that if the message starts with "!", then it's a command and it should be ignored
+    if (formattedMessage.startsWith('!')) {
+      return;
+    }
+
+    const newLine = document.createElement('div');
+    const balloon = document.createElement('div');
+    balloon.classList.add('balloon');
+    balloon.innerHTML = `<div class="message">${formattedMessage}</div>`;
+
+    // Get user ID from the tags object
+    const viewerName = tags['username'];
+    console.log('viewer name:', viewerName);
+
+    const clientId = 'r3ogar92pgsdb1cnjzdvxyggazu8hb';
+    const clientSecret = 'savi45a8s6jdlljst94gqq4bzdsbky';
+    const authTokenUrl = `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`;
+
+    // Get authorization token
+    fetch(authTokenUrl, {
+    method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+      const accessToken = data.access_token;
+      const userImageUrl = `https://api.twitch.tv/helix/users?login=${viewerName}`;
+
+    // Get user profile picture URL
+    fetch(userImageUrl, {
+      headers: {
+        'Client-ID': clientId,
+        'Authorization': `Bearer ${accessToken}`
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      const userPictureUrl = data.data[0].profile_image_url;
+      const profilePic = document.createElement('img');
+      profilePic.src = userPictureUrl;
+      profilePic.classList.add('profilePic');
+
+      newLine.appendChild(balloon);
+      newLine.appendChild(profilePic);
+      document.getElementById('chat').appendChild(newLine);
+      newLine.classList.add('slide-up');
+    })
+    .catch(error => console.error(error));
+    })
+  });
+  </script>
+  <div id="chat"></div>
+</body>
+</html>
